@@ -16,7 +16,7 @@ fopen(obj1);
 fprintf(obj1,'smua.reset()');
 % Communicating with instrument object, obj1.
 
-A=cuatro_puntas(obj1,i_0,i_f,pasos-1,duracion)
+A=cuatro_puntas(obj1,i_0,i_f,pasos-1,duracion);
 
 
 
