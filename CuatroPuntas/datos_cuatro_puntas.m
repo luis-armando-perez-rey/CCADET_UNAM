@@ -22,7 +22,7 @@ function varargout = datos_cuatro_puntas(varargin)
 
 % Edit the above text to modify the response to help datos_cuatro_puntas
 
-% Last Modified by GUIDE v2.5 08-Jun-2016 15:20:41
+% Last Modified by GUIDE v2.5 09-Jun-2016 13:00:14
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -53,7 +53,8 @@ function datos_cuatro_puntas_OpeningFcn(hObject, eventdata, handles, varargin)
 % varargin   command line arguments to datos_cuatro_puntas (see VARARGIN)
 % Choose default command line output for datos_cuatro_puntas
 handles.output = hObject;
-
+axes(handles.grafica1);
+imshow('cuatro_puntas_conexion.jpg');
 % Update handles structure
 guidata(hObject, handles);
 initialize_gui(hObject, handles, false);
@@ -413,20 +414,43 @@ end
 pasos=handles.metricdata.num_paso;
 %fprintf('Corriente inicial %d,Corriente Final%d,Duracion %d,Pasos %d',i_0,i_f,duracion,pasos);
 if [isnan(i_0)|isnan(i_f)|isnan(pasos)|isnan(duracion)]
+    return;
 else
-    A = cuatro_puntas1(i_0,i_f,pasos,duracion);
-    dir=fopen('datos.txt','w+');
-    %fprintf(dir,'Corriente(A)\tVoltaje(V)\n\n');
-    fprintf(dir,'%2.5e %2.5e %2.5e %2.5e \r\n',A');
-    fclose(dir);
-    axes(handles.axes3);
-    cla;
-    errorbar(A(:,1),A(:,2),A(:,3));
-    grid on;
-    ylim([min(A(:,2)) max(A(:,2))]);
-    xlim([min(A(:,1)) max(A(:,1))]);
-    xlabel('Corriente(A)');
-    ylabel('Voltaje(V)');
+    if abs(i_0)>=0.2|abs(i_f)>=0.2
+            eleccion=questdlg('Las corrientes son mayores o iguales a los 0.2 Amperes las cuales pueden ser mortales y dañar el equipo. ¿Desea continuar?',...
+                '¡¡¡Atención!!!','Continuar con medición','Cancelar','Cancelar');
+            switch eleccion
+                case 'Continuar con medición'
+                     eleccion2=questdlg('¿Está seguro de querer continuar con la corriente mayor o igual a 0.2 Amperes? Esto puede ser riesgoso para la salud o el equipo, tenga precaución.',...
+                         'Confirmación','Continuar','Cancelar','Cancelar');
+                     switch eleccion2
+                         case 'Continuar'
+                               h=warndlg('Tenga cuidado con los electrodos. Espere a la segunda señal sonora.','Medicion en proceso');
+                               B=funcion_vanderpauw(duracion,corriente,numero_medidas);
+                               delete(h);
+                         case 'Cancelar'
+                             return;
+                     end
+                case 'Cancelar'
+                     return;
+            end
+     else
+            h=warndlg('Tenga cuidado con los electrodos. Espere a la segunda señal sonora.','Medicion en proceso');
+            A = cuatro_puntas1(i_0,i_f,pasos,duracion);
+            dir=fopen('datos.txt','w+');
+            fprintf(dir,'%2.5e %2.5e %2.5e %2.5e \r\n',A');
+            fclose(dir);
+            axes(handles.axes3);
+            cla;
+            errorbar(A(:,1),A(:,2),A(:,3),'LineWidth',1.5);
+            grid on;
+            ylim([min(A(:,2)) max(A(:,2))]);
+            xlim([min(A(:,1)) max(A(:,1))]);
+            xlabel('Corriente(A)','FontWeight','bold');
+            ylabel('Voltaje(V)','FontWeight','bold');
+            set(gca,'FontWeight','bold');
+            delete(h);
+    end
 end
 
 
@@ -645,16 +669,32 @@ function guardar_Callback(hObject, eventdata, handles)
 % hObject    handle to guardar (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+R=get(handles.resistencia,'String');
+deltar=get(handles.incresistencia,'String');
+rho=get(handles.resistividad,'String');
+deltarho=get(handles.incresistividad,'String');
+sigma=get(handles.conductividad,'String');
+deltasigma=get(handles.incconductividad,'String');
+r=get(handles.coefcorrel,'String');
 nombre_folder=uigetdir;
 nombre_archivo=inputdlg('Diga el nombre del archivo');
 path_total=strcat(nombre_folder,'\',nombre_archivo{1});
+h=warndlg('Guardando los datos, espere antes de abrir el documento.','Guardar');
 dir=fopen('datos.txt','r');
 A=fscanf(dir,'%e %e %e %e',[4 Inf])';
 fclose(dir);
+dir=fopen('datos2.txt','r');
+B=fscanf(dir,'%e %e %e ',[3 Inf])';
+fclose(dir);
 xlswrite(path_total,{'Corriente(A)','Voltaje(V)','Inc. Corriente (A)','Inc. Voltaje(V)'});
 xlswrite(path_total,A,'Sheet1','A2');
-R=get(handles.resistencia,'String');
-xlswrite(path_total,{'Resistencia (Ohm)','Inc. Resistencia(Ohm)'},'Sheet1','F1');
+xlswrite(path_total,{'Resistencia (Ohm)','Inc. Resistencia(Ohm)';R,deltar;...
+    'Resistividad (Ohm*cm)','Inc. Resistividad (Ohm*cm)';rho,deltarho;...
+    'Conductividad (S/cm)','Inc. Conductividad (S/cm)';sigma,deltasigma;...
+    'Coef. de Correl.',' ';r,' '},'Sheet1','F1');
+xlswrite(path_total,{'Voltaje (V)','Resistividad (Ohm*cm)','Inc. Resistividad (Ohm*cm)'},'Sheet2');
+xlswrite(path_total,B,'Sheet2','A2');
+delete(h);
 
 
 % --- Executes on button press in calcular2.
@@ -667,32 +707,40 @@ A=fscanf(dir,'%e %e %e %e',[4 Inf])';
 fclose(dir);
 x=A(:,1);
 y=A(:,2);
-sigmay=A(:,4);
-%delta=sum(1./sigmay.^2)*sum(x.^2./sigmay.^2)-sum(x./sigmay.^2)
-%a=(sum(x.^2./sigmay.^2)*sum(y./sigmay.^2)-sum(x./sigmay.^2)*sum((x.*y)./sigmay.^2))/delta;
-%b=(sum(1./sigmay.^2)*sum((x.*y)./sigmay.^2)-sum(x./sigmay.^2)*sum(y./sigmay.^2))/delta;
-delta=((length(x)*sum(x.^2))-(sum(x)^2));
-m=((length(x)*sum(x.*y))-(sum(x)*sum(y)))/delta;
-b=(sum(x.^2)*sum(y)-sum(x.*y)*sum(x))/delta;
-sy=sqrt(sum((y-m.*x-b).^2)/(length(x)-2));
-sm=sqrt(length(x)/delta)*sy;
-sb=sy*sqrt(sum(x.^2)/delta);
+deltay=A(:,4);
+N=length(x);
+sumax=sum(x);
+sumay=sum(y);
+sumax2=sum(x.^2);
+sumay2=sum(y.^2);
+sumaxy=sum(x.*y);
+delta=((N*sumax2)-(sumax^2));
+m=((N*sumaxy)-(sumax*sumay))/delta;
+b=(sumax2*sumay-sumaxy*sumax)/delta;
+sy=sqrt(sum((y-m.*x-b).^2)/(N-2));
+sm=sqrt(N/delta)*sy;
+sb=sy*sqrt(sumax2/delta);
 y1=b+x.*(m+sm);
 y2=b+x.*(m-sm);
 y3=b+x.*m;
 axes(handles.axes3);
 cla;
 grid on;
-errorbar(x,y,sigmay,'-bx');
+errorbar(x,y,deltay,'LineWidth',1.5);
 hold on;
-plot(x,y3,'-rx');
-plot(x,y1,':kx');
-plot(x,y2,':kx');
-legend('Medicion','Ajuste lineal','Límite 1','Límite 2','Location','best');
+%Grafica de los valores y de la regresión lineal
+plot(x,y3,'-rx','LineWidth',1.5);
+plot(x,y1,':kx','LineWidth',1.5);
+plot(x,y2,':kx','LineWidth',1.5);
 ylim([min([min(y1),min(y2),min(y3),min(y)]) max([max(y1),max(y2),max(y3),max(y)])]);
 xlim([min(x) max(x)]);
-xlabel('Corriente [A]');
-ylabel('Voltaje [V]');
+xlabel('Corriente [A]','FontWeight','b');
+ylabel('Voltaje [V]','FontWeight','b');
+set(gca,'FontWeight','bold');
+legend('Medicion','Ajuste lineal','Límite 1','Límite 2','Location','best');
+
+%Imprimir resultados en pantalla de resistividad,resistencia, conductividad
+%y coeficiente de correlación.
 set(handles.resistencia,'String',m);
 set(handles.incresistencia,'String',sm);
 sw=str2double(get(handles.incancho,'String'));
@@ -702,12 +750,13 @@ w=str2double(get(handles.ancho,'String'));
 L=str2double(get(handles.largo,'String'));
 t=str2double(get(handles.espesor,'String'));
 rho=m*w*t/L;
-srho=rho*((sm/m)+(sw/w)+(st/t)+(sL/L));
+srho=abs(rho*(abs(sm/m)+abs(sw/w)+abs(st/t)+abs(sL/L)));
 set(handles.resistividad,'String',rho);
 set(handles.incresistividad,'String',srho);
 set(handles.conductividad,'String',1/rho);
 set(handles.incconductividad,'String',srho/rho^2);
-
+r=(N*sumaxy-sumax*sumay)/(sqrt(N*sumax2-sumax^2)*sqrt(N*sumay2-sumay^2));
+set(handles.coefcorrel,'String',r);
 
 
 
@@ -777,3 +826,66 @@ function incespesor_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+% --- Executes on button press in pushbutton7.
+function pushbutton7_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton7 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+dir=fopen('datos.txt','r');
+A=fscanf(dir,'%e %e %e %e',[4 Inf])';
+fclose(dir);
+x=A(:,1);
+y=A(:,2);
+dx=A(:,3);
+dy=A(:,4);
+sw=str2double(get(handles.incancho,'String'));
+sL=str2double(get(handles.inclargo,'String'));
+st=str2double(get(handles.incespesor,'String'));
+w=str2double(get(handles.ancho,'String'));
+L=str2double(get(handles.largo,'String'));
+t=str2double(get(handles.espesor,'String'));
+J=x./(w*t);
+E=y./L;
+%rho=E./J;
+V=ones(length(x)-1,1);
+Rho=ones(length(x)-1,1);
+dRho=ones(length(x)-1,1);
+for i=1:length(x)-1
+    V(i)=(x(i)+x(i+1))/2;
+end
+for i=1:length(x)-1
+    Rho(i)=(E(i+1)-E(i))/(J(i+1)-J(i));
+end
+%drho=abs(rho.*(abs(dy./y)+abs(sw/w)+abs(sL/L)+abs(st/t)+abs(dx./x)));
+for i=1:length(x)-1
+    dE1=abs(E(i)*((abs(sw/w)+abs(st/t)+abs(dx(i)/x(i)))));
+    dE2=abs(E(i+1)*((abs(sw/w)+abs(st/t)+abs(dx(i+1)/x(i+1)))));
+    dJ1=abs(J(i)*((abs(sw/w)+abs(st/t)+abs(dy(i)/y(i)))));
+    dJ2=abs(J(i+1)*((abs(sw/w)+abs(st/t)+abs(dy(i+1)/y(i+1)))));
+    dRho(i)=Rho(i)*(abs((dE1+dE2)/(E(i+1)-E(i)))+...
+            abs((dJ1+dJ2)/(J(i+1)-J(i))));
+end
+axes(handles.axes3);
+cla;
+%errorbar(x,rho,drho,'-bx','Linewidth',1.5);
+%figure(1)
+errorbar(V,Rho,dRho,'-bx','Linewidth',1.5);
+xlabel('Voltaje (V)','FontWeight','b');
+ylabel('Resistividad (Ohm*cm)','FontWeight','b');
+set(gca,'FontWeight','bold');
+grid on;
+xlim([min(V)-0.01*abs(max(V)-min(V)) max(V)+0.01*abs(max(V)-min(V))])
+[minrho,indminrho]=min(Rho);
+[maxrho,indmaxrho]=max(Rho);
+ylim([minrho-(dRho(indminrho))-0.01*abs(maxrho-minrho) maxrho+(dRho(indmaxrho))+0.01*abs(maxrho-minrho)]);
+legend('hide');
+%Guardar los datos
+B=zeros(length(V),3);
+B(:,1)=V;
+B(:,2)=Rho;
+B(:,3)=dRho;
+dir=fopen('datos2.txt','w+');
+fprintf(dir,'%2.5e %2.5e %2.5e \r\n',B');
+fclose(dir);
