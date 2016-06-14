@@ -63,13 +63,13 @@ fprintf(obj1,'smua.source.output=smua.OUTPUT_OFF');
         end
         switch A(i,4)
             case 100e-3
-                A(i,4)=abs(A(i,2)*0.0002)+250e-6;
+                A(i,4)=abs(A(i,2)*0.00015)+150e-6;
             case 1
-                A(i,4)=abs(A(i,2)*0.0002)+400e-6;
+                A(i,4)=abs(A(i,2)*0.00015)+200e-6;
             case 6
-                A(i,4)=abs(A(i,2)*0.0002)+1.8e-3;
+                A(i,4)=abs(A(i,2)*0.00015)+1e-3;
             case 40
-                A(i,4)=abs(A(i,2)*0.0002)+12e-3;     
+                A(i,4)=abs(A(i,2)*0.00015)+8e-3;     
          end
     end
 fprintf(obj1,'beeper.beep(0.1,329)');

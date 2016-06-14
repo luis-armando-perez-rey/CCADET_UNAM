@@ -22,7 +22,7 @@ function varargout = datos_cuatro_puntas(varargin)
 
 % Edit the above text to modify the response to help datos_cuatro_puntas
 
-% Last Modified by GUIDE v2.5 09-Jun-2016 13:00:14
+% Last Modified by GUIDE v2.5 14-Jun-2016 15:21:47
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -425,9 +425,21 @@ else
                          'Confirmación','Continuar','Cancelar','Cancelar');
                      switch eleccion2
                          case 'Continuar'
-                               h=warndlg('Tenga cuidado con los electrodos. Espere a la segunda señal sonora.','Medicion en proceso');
-                               B=funcion_vanderpauw(duracion,corriente,numero_medidas);
-                               delete(h);
+                                h=warndlg('Tenga cuidado con los electrodos. Espere a la segunda señal sonora.','Medicion en proceso');
+                                A = cuatro_puntas1(i_0,i_f,pasos,duracion);
+                                dir=fopen('datos.txt','w+');
+                                fprintf(dir,'%2.5e %2.5e %2.5e %2.5e \r\n',A');
+                                fclose(dir);
+                                axes(handles.axes3);
+                                cla;
+                                errorbar(A(:,1),A(:,2),A(:,4),'LineWidth',1.5);
+                                grid on;
+                                ylim([min(A(:,2)) max(A(:,2))]);
+                                xlim([min(A(:,1)) max(A(:,1))]);
+                                xlabel('Corriente(A)','FontWeight','bold');
+                                ylabel('Voltaje(V)','FontWeight','bold');
+                                set(gca,'FontWeight','bold');
+                                delete(h);  
                          case 'Cancelar'
                              return;
                      end
@@ -442,7 +454,7 @@ else
             fclose(dir);
             axes(handles.axes3);
             cla;
-            errorbar(A(:,1),A(:,2),A(:,3),'LineWidth',1.5);
+            errorbar(A(:,1),A(:,2),A(:,4),'LineWidth',1.5);
             grid on;
             ylim([min(A(:,2)) max(A(:,2))]);
             xlim([min(A(:,1)) max(A(:,1))]);
@@ -692,7 +704,7 @@ xlswrite(path_total,{'Resistencia (Ohm)','Inc. Resistencia(Ohm)';R,deltar;...
     'Resistividad (Ohm*cm)','Inc. Resistividad (Ohm*cm)';rho,deltarho;...
     'Conductividad (S/cm)','Inc. Conductividad (S/cm)';sigma,deltasigma;...
     'Coef. de Correl.',' ';r,' '},'Sheet1','F1');
-xlswrite(path_total,{'Voltaje (V)','Resistividad (Ohm*cm)','Inc. Resistividad (Ohm*cm)'},'Sheet2');
+xlswrite(path_total,{'Corriente (A)','Resistividad (Ohm*cm)','Inc. Resistividad (Ohm*cm)'},'Sheet2');
 xlswrite(path_total,B,'Sheet2','A2');
 delete(h);
 
@@ -872,14 +884,15 @@ cla;
 %errorbar(x,rho,drho,'-bx','Linewidth',1.5);
 %figure(1)
 errorbar(V,Rho,dRho,'-bx','Linewidth',1.5);
-xlabel('Voltaje (V)','FontWeight','b');
+xlabel('Corriente (A)','FontWeight','b');
 ylabel('Resistividad (Ohm*cm)','FontWeight','b');
 set(gca,'FontWeight','bold');
 grid on;
 xlim([min(V)-0.01*abs(max(V)-min(V)) max(V)+0.01*abs(max(V)-min(V))])
-[minrho,indminrho]=min(Rho);
-[maxrho,indmaxrho]=max(Rho);
-ylim([minrho-(dRho(indminrho))-0.01*abs(maxrho-minrho) maxrho+(dRho(indmaxrho))+0.01*abs(maxrho-minrho)]);
+supRho=Rho+dRho;
+infRho=Rho-dRho;
+intervaloy=abs(max(Rho)-min(Rho));
+ylim([min(infRho)-0.01*intervaloy max(supRho)+0.01*intervaloy]);
 legend('hide');
 %Guardar los datos
 B=zeros(length(V),3);
@@ -889,3 +902,208 @@ B(:,3)=dRho;
 dir=fopen('datos2.txt','w+');
 fprintf(dir,'%2.5e %2.5e %2.5e \r\n',B');
 fclose(dir);
+
+
+% --- Executes on selection change in popupmenu6.
+function popupmenu6_Callback(hObject, eventdata, handles)
+% hObject    handle to popupmenu6 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popupmenu6 contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popupmenu6
+grafica=get(handles.popupmenu6,'Value');
+switch grafica
+    case 1;
+        dir=fopen('datos.txt','r');
+        A=fscanf(dir,'%e %e %e %e',[4 Inf])';
+        fclose(dir);
+                % Ahora definimos nuestras variables a partir de los datos extraídos.
+        I=A(:,1); %Voltaje inyectado
+        V=A(:,2); %Corriente medida
+        dV=A(:,4); %Incertidumbre de la corriente medida
+        Nmedidas=length(I); %Número de medidas
+
+        % Posteriormente procederemos a graficar tanto los datos como las rectas
+        % de ajuste. 
+        figure(1)
+        cla;
+        grid on;
+        % Grafica de las mediciones con su incertidumbre
+        errorbar(I,V,dV,'LineWidth',1.5);
+        hold on;
+
+        % Formato
+        xlim([min(I) max(I)]);
+        ylim([min(V) max(V)]);
+        xlabel('Corriente [A]','FontWeight','b');
+        ylabel('Voltaje [V]','FontWeight','b');
+        set(gca,'FontWeight','bold');
+        legend('Medicion','Location','best');
+    case 2;
+        dir=fopen('datos.txt','r');
+        A=fscanf(dir,'%e %e %e %e',[4 Inf])';
+        fclose(dir);
+
+        % Ahora definimos nuestras variables a partir de los datos extraídos.
+        I=A(:,1); %Voltaje inyectado
+        V=A(:,2); %Corriente medida
+        dV=A(:,4); %Incertidumbre de la corriente medida
+        Nmedidas=length(I); %Número de medidas
+
+        %% Mínimos cuadrados
+        % A continuación se definen cantidades importantes para el método de
+        % mínimos cuadrados.
+        sumV=sum(I); %Suma de voltajes
+        sumI=sum(V); %Suma de corrientes
+        sumax2=sum(I.^2); %Suma de voltajes al cuadrado
+        sumay2=sum(V.^2); %Suma de corrientes al cuadrado
+        sumaxy=sum(I.*V); %Suma del producto entre voltaje y corriente.
+        discriminante=((Nmedidas*sumax2)-(sumV^2)); %Discriminante del sistem.
+        m=((Nmedidas*sumaxy)-(sumV*sumI))/discriminante; %Pendiente obtenida
+        b=(sumax2*sumI-sumaxy*sumV)/discriminante; %Ordenada obtenida
+        sI=sqrt(sum((V-m.*I-b).^2)/(Nmedidas-2)); %Incertidumbre de la corriente
+        dm=sqrt(Nmedidas/discriminante)*sI; %Incertidumbre de la pendiente
+
+        %% Gráfica de ajuste y valores medidos
+        % Obtenemos la recta de mejor ajuste y las rectas asociadas a la
+        % incertidumbre.
+        ajuste0=b+I.*m; %Recta que mejor ajusta a los datos
+        ajuste1=b+I.*(m-dm); %Recta con pendiente m-dm
+        ajuste2=b+I.*(m+dm); %Recta con pendiente m+dm
+
+
+        % Posteriormente procederemos a graficar tanto los datos como las rectas
+        % de ajuste. 
+        figure(2)
+        cla;
+        grid on;
+        % Grafica de las mediciones con su incertidumbre
+        errorbar(I,V,dV,'LineWidth',1.5);
+        hold on;
+        % Grafica de los valores y de la regresión lineal
+        plot(I,ajuste0,'-rx','LineWidth',1.5);
+        plot(I,ajuste2,':kx','LineWidth',1.5);
+        plot(I,ajuste1,':kx','LineWidth',1.5);
+        % Formato
+        xlim([min(I) max(I)]);
+        ylim([min([min(ajuste2),min(ajuste1),min(ajuste0),min(V)])...
+            max([max(ajuste2),max(ajuste1),max(ajuste0),max(V)])]);
+        xlabel('Corriente [A]','FontWeight','b');
+        ylabel('Voltaje [V]','FontWeight','b');
+        set(gca,'FontWeight','bold');
+        legend('Medicion','Ajuste lineal','Límite 1','Límite 2','Location','best');
+    case 3;
+ dir=fopen('datos.txt','r');
+A=fscanf(dir,'%e %e %e %e',[4 Inf])';
+fclose(dir);
+x=A(:,1);
+y=A(:,2);
+dx=A(:,3);
+dy=A(:,4);
+sw=str2double(get(handles.incancho,'String'));
+sL=str2double(get(handles.inclargo,'String'));
+st=str2double(get(handles.incespesor,'String'));
+w=str2double(get(handles.ancho,'String'));
+L=str2double(get(handles.largo,'String'));
+t=str2double(get(handles.espesor,'String'));
+J=x./(w*t);
+E=y./L;
+%rho=E./J;
+V=ones(length(x)-1,1);
+Rho=ones(length(x)-1,1);
+dRho=ones(length(x)-1,1);
+for i=1:length(x)-1
+    V(i)=(x(i)+x(i+1))/2;
+end
+for i=1:length(x)-1
+    Rho(i)=(E(i+1)-E(i))/(J(i+1)-J(i));
+end
+%drho=abs(rho.*(abs(dy./y)+abs(sw/w)+abs(sL/L)+abs(st/t)+abs(dx./x)));
+for i=1:length(x)-1
+    dE1=abs(E(i)*((abs(sw/w)+abs(st/t)+abs(dx(i)/x(i)))));
+    dE2=abs(E(i+1)*((abs(sw/w)+abs(st/t)+abs(dx(i+1)/x(i+1)))));
+    dJ1=abs(J(i)*((abs(sw/w)+abs(st/t)+abs(dy(i)/y(i)))));
+    dJ2=abs(J(i+1)*((abs(sw/w)+abs(st/t)+abs(dy(i+1)/y(i+1)))));
+    dRho(i)=Rho(i)*(abs((dE1+dE2)/(E(i+1)-E(i)))+...
+            abs((dJ1+dJ2)/(J(i+1)-J(i))));
+end
+figure(3)
+cla;
+%errorbar(x,rho,drho,'-bx','Linewidth',1.5);
+%figure(1)
+errorbar(V,Rho,dRho,'-bx','Linewidth',1.5);
+xlabel('Corriente (A)','FontWeight','b');
+ylabel('Resistividad (Ohm*cm)','FontWeight','b');
+set(gca,'FontWeight','bold');
+grid on;
+xlim([min(V)-0.01*abs(max(V)-min(V)) max(V)+0.01*abs(max(V)-min(V))])
+supRho=Rho+dRho;
+infRho=Rho-dRho;
+intervaloy=abs(max(Rho)-min(Rho));
+ylim([min(infRho)-0.01*intervaloy max(supRho)+0.01*intervaloy]);
+legend('hide');
+    case 4;
+        dir=fopen('datos.txt','r');
+A=fscanf(dir,'%e %e %e %e',[4 Inf])';
+fclose(dir);
+x=A(:,1);
+y=A(:,2);
+dx=A(:,3);
+dy=A(:,4);
+sw=str2double(get(handles.incancho,'String'));
+sL=str2double(get(handles.inclargo,'String'));
+st=str2double(get(handles.incespesor,'String'));
+w=str2double(get(handles.ancho,'String'));
+L=str2double(get(handles.largo,'String'));
+t=str2double(get(handles.espesor,'String'));
+J=x./(w*t);
+E=y./L;
+%rho=E./J;
+V=ones(length(x)-1,1);
+Rho=ones(length(x)-1,1);
+dRho=ones(length(x)-1,1);
+for i=1:length(x)-1
+    V(i)=(x(i)+x(i+1))/2;
+end
+for i=1:length(x)-1
+    Rho(i)=1/((E(i+1)-E(i))/(J(i+1)-J(i)));
+end
+%drho=abs(rho.*(abs(dy./y)+abs(sw/w)+abs(sL/L)+abs(st/t)+abs(dx./x)));
+for i=1:length(x)-1
+    dE1=abs(E(i)*((abs(sw/w)+abs(st/t)+abs(dx(i)/x(i)))));
+    dE2=abs(E(i+1)*((abs(sw/w)+abs(st/t)+abs(dx(i+1)/x(i+1)))));
+    dJ1=abs(J(i)*((abs(sw/w)+abs(st/t)+abs(dy(i)/y(i)))));
+    dJ2=abs(J(i+1)*((abs(sw/w)+abs(st/t)+abs(dy(i+1)/y(i+1)))));
+    dRho(i)=Rho(i)*(abs((dE1+dE2)/(E(i+1)-E(i)))+...
+            abs((dJ1+dJ2)/(J(i+1)-J(i))));
+end
+figure(3)
+cla;
+%errorbar(x,rho,drho,'-bx','Linewidth',1.5);
+%figure(1)
+errorbar(V,Rho,dRho,'-bx','Linewidth',1.5);
+xlabel('Corriente (A)','FontWeight','b');
+ylabel('Conductividad (Ohm/cm)','FontWeight','b');
+set(gca,'FontWeight','bold');
+grid on;
+xlim([min(V)-0.01*abs(max(V)-min(V)) max(V)+0.01*abs(max(V)-min(V))])
+supRho=Rho+dRho;
+infRho=Rho-dRho;
+intervaloy=abs(max(Rho)-min(Rho));
+ylim([min(infRho)-0.01*intervaloy max(supRho)+0.01*intervaloy]);
+legend('hide');
+end
+
+
+% --- Executes during object creation, after setting all properties.
+function popupmenu6_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popupmenu6 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
