@@ -703,7 +703,7 @@ dt=str2double(get(handles.incespesor,'String'));
 w=str2double(get(handles.ancho,'String'));
 L=str2double(get(handles.largo,'String'));
 t=str2double(get(handles.espesor,'String'));
-rho=m*w*t/L;
+rho=(1/m)*w*t/L;
 drho=abs(rho*(abs(dm/m)+abs(dw/w)+abs(dt/t)+abs(dL/L)));
 
 
